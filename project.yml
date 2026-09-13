@@ -15,6 +15,7 @@ targets:
     sources:
       - path: MyFamilyTree
     info:
+      path: MyFamilyTree/Info.plist
       properties:
         CFBundleDisplayName: "My Family Tree"
         UILaunchScreen: {}
