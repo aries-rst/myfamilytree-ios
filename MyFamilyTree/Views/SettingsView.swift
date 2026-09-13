@@ -14,9 +14,14 @@ struct SettingsView: View {
                         } else {
                             Text(app.t(.proTitle)).font(.system(size: 19, weight: .bold))
                             Text(app.t(.proSub)).font(.system(size: 13)).foregroundStyle(.secondary)
-                            Text("$4.99").font(.system(size: 24, weight: .bold)).foregroundStyle(Theme.gold)
-                                + Text(app.lang == .ru ? " однократно" : " one-time")
-                                .font(.system(size: 12)).foregroundStyle(.secondary)
+                            HStack(alignment: .lastTextBaseline, spacing: 4) {
+                                Text("$4.99")
+                                    .font(.system(size: 24, weight: .bold))
+                                    .foregroundStyle(Theme.gold)
+                                Text(app.lang == .ru ? "однократно" : "one-time")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
                             Button(app.t(.buyPro)) { app.buyPro() }
                                 .buttonStyle(.borderedProminent)
                                 .tint(Theme.wine)
