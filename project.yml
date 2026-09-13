@@ -13,7 +13,7 @@ targets:
     platform: iOS
     deploymentTarget: "16.0"
     sources:
-      - path: MyFamilyTree
+      - MyFamilyTree
     info:
       path: MyFamilyTree/Info.plist
       properties:
