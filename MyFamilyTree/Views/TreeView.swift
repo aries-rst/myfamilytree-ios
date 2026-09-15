@@ -7,54 +7,35 @@ struct TreeView: View {
     @State private var zoom: CGFloat = 1.0
     @GestureState private var pinchDelta: CGFloat = 1.0
     @State private var naturalSize: CGSize = .zero
-    @State private var selectedPerson: Person?
-    @State private var showAddSheet = false
+    @State private var selectedPerson: SelectedPerson?
+    @State private var formMode: PersonFormMode?
     @State private var shareItem: TreeShareItem?
 
     private var isRussian: Bool { app.lang == .ru }
-
-    private var displayedZoom: CGFloat {
-        min(1.4, max(0.6, zoom * pinchDelta))
-    }
-
-    private var rootPerson: Person {
-        app.people.first(where: { $0.role == .root }) ?? Person(id: "root", name: "", years: "", relation: "", avatarInitials: "?", sex: .male, role: .root)
-    }
-    private var partners: [Person] { app.people.filter { $0.role == .rootPartner } }
-    private var ancestorsRoot: [Person] { app.people.filter { $0.role == .ancestorRoot } }
-    private var ancestorsPartner: [Person] { app.people.filter { $0.role == .ancestorPartner } }
-    private var children: [Person] { app.people.filter { $0.role == .child } }
+    private var displayedZoom: CGFloat { min(1.4, max(0.6, zoom * pinchDelta)) }
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottomTrailing) {
-                ScrollView([.horizontal, .vertical]) {
-                    treeCanvas
-                        .padding(40)
-                        .background(
-                            GeometryReader { geo in
-                                Color.clear.preference(key: TreeSizePreferenceKey.self, value: geo.size)
-                            }
-                        )
-                        .scaleEffect(displayedZoom, anchor: .topLeading)
-                        .frame(width: naturalSize.width * displayedZoom, height: naturalSize.height * displayedZoom)
-                }
-                .onPreferenceChange(TreeSizePreferenceKey.self) { naturalSize = $0 }
-                .background(Theme.paper.opacity(0.4))
-
-                Button {
-                    showAddSheet = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 54, height: 54)
-                        .background(Theme.gold)
-                        .clipShape(Circle())
-                        .shadow(color: Theme.gold.opacity(0.5), radius: 10, y: 4)
-                }
-                .padding(20)
+            ScrollView([.horizontal, .vertical]) {
+                FamilyBranchView(
+                    node: app.root, isRoot: true,
+                    onTapPerson: { person, nodeId in selectedPerson = SelectedPerson(nodeId: nodeId, person: person) },
+                    onAddChild: { nodeId in formMode = .addChild(nodeId: nodeId) },
+                    onAddSpouse: { nodeId in formMode = .addSpouse(nodeId: nodeId) },
+                    onAddParent: { formMode = .addParent },
+                    exesShown: app.exesShown, isRussian: isRussian
+                )
+                .padding(40)
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(key: TreeSizePreferenceKey.self, value: geo.size)
+                    }
+                )
+                .scaleEffect(displayedZoom, anchor: .topLeading)
+                .frame(width: naturalSize.width * displayedZoom, height: naturalSize.height * displayedZoom)
             }
+            .onPreferenceChange(TreeSizePreferenceKey.self) { naturalSize = $0 }
+            .background(Theme.paper.opacity(0.4))
             .navigationTitle(isRussian ? "Семейное древо" : "Family Tree")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -85,104 +66,30 @@ struct TreeView: View {
                 .updating($pinchDelta) { value, state, _ in state = value }
                 .onEnded { value in zoom = min(1.4, max(0.6, zoom * value)) }
         )
-        .sheet(item: $selectedPerson) { person in
-            PersonDetailSheet(person: person)
+        .sheet(item: $selectedPerson) { sel in
+            PersonDetailSheet(nodeId: sel.nodeId, person: sel.person)
         }
-        .sheet(isPresented: $showAddSheet) {
-            AddPersonSheet(mode: .add)
+        .sheet(item: $formMode) { mode in
+            AddPersonSheet(mode: mode)
         }
         .sheet(item: $shareItem) { item in
             ShareSheet(activityItems: [item.url])
         }
-    }
-
-    private var treeCanvas: some View {
-        VStack(spacing: 16) {
-            if !ancestorsRoot.isEmpty || !ancestorsPartner.isEmpty {
-                HStack(alignment: .top, spacing: 28) {
-                    if !ancestorsRoot.isEmpty {
-                        ancestorGroup(label: isRussian ? "Моя сторона" : "My side", people: ancestorsRoot)
-                    }
-                    if !ancestorsPartner.isEmpty {
-                        ancestorGroup(label: isRussian ? "Сторона партнёра" : "Partner's side", people: ancestorsPartner)
-                    }
-                }
-                connector
-            }
-
-            HStack(spacing: 10) {
-                PersonCard(person: rootPerson, emphasized: true)
-                    .onTapGesture { selectedPerson = rootPerson }
-                ForEach(partners) { partner in
-                    if !partner.isExSpouse || app.exesShown {
-                        Group {
-                            Text("⚭").font(.system(size: 20)).foregroundStyle(Theme.gold)
-                            PersonCard(person: partner, emphasized: true)
-                                .overlay(alignment: .top) {
-                                    if partner.isExSpouse {
-                                        Text(partner.sex == .male
-                                             ? (isRussian ? "бывший супруг" : "ex-spouse")
-                                             : (isRussian ? "бывшая супруга" : "ex-spouse"))
-                                            .font(.system(size: 9, weight: .bold))
-                                            .padding(.horizontal, 6).padding(.vertical, 2)
-                                            .background(Theme.female)
-                                            .foregroundStyle(.white)
-                                            .clipShape(Capsule())
-                                            .offset(y: -9)
-                                    }
-                                }
-                                .onTapGesture { selectedPerson = partner }
-                        }
-                        .transition(.scale.combined(with: .opacity))
-                    }
-                }
-            }
-
-            if !children.isEmpty {
-                connector
-                HStack(spacing: 12) {
-                    ForEach(children) { child in
-                        if !child.isExChild || app.exesShown {
-                            PersonCard(person: child)
-                                .onTapGesture { selectedPerson = child }
-                                .transition(.scale.combined(with: .opacity))
-                        }
-                    }
-                }
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: app.exesShown)
-    }
-
-    private func ancestorGroup(label: String, people: [Person]) -> some View {
-        VStack(spacing: 6) {
-            Text(label)
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(Theme.wine)
-                .textCase(.uppercase)
-            HStack(spacing: 8) {
-                ForEach(people) { person in
-                    PersonCard(person: person, compact: true)
-                        .onTapGesture { selectedPerson = person }
-                }
-            }
+        .sheet(isPresented: $app.showLimitSheet) {
+            LimitPaywallSheet()
         }
     }
-
-    private var connector: some View {
-        Rectangle()
-            .fill(Theme.ink.opacity(0.22))
-            .frame(width: 2, height: 22)
-    }
-
-    // MARK: - Export
 
     @MainActor
     private func renderImage() -> UIImage? {
-        let content = treeCanvas
-            .padding(30)
-            .background(Color.white)
-            .environmentObject(app)
+        let content = FamilyBranchView(
+            node: app.root, isRoot: false,
+            onTapPerson: { _, _ in }, onAddChild: { _ in }, onAddSpouse: { _ in }, onAddParent: {},
+            exesShown: app.exesShown, isRussian: isRussian, showControls: false
+        )
+        .padding(30)
+        .background(Color.white)
+        .environmentObject(app)
         let renderer = ImageRenderer(content: content)
         renderer.scale = 3
         return renderer.uiImage
@@ -191,10 +98,7 @@ struct TreeView: View {
     private func exportPNG() {
         guard let image = renderImage(), let data = image.pngData() else { return }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("family-tree-\(Int(Date().timeIntervalSince1970)).png")
-        do {
-            try data.write(to: url)
-            shareItem = TreeShareItem(url: url)
-        } catch {}
+        do { try data.write(to: url); shareItem = TreeShareItem(url: url) } catch {}
     }
 
     private func exportPDF() {
@@ -202,10 +106,7 @@ struct TreeView: View {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("family-tree-\(Int(Date().timeIntervalSince1970)).pdf")
         let pdfRenderer = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: image.size))
         do {
-            try pdfRenderer.writePDF(to: url) { ctx in
-                ctx.beginPage()
-                image.draw(at: .zero)
-            }
+            try pdfRenderer.writePDF(to: url) { ctx in ctx.beginPage(); image.draw(at: .zero) }
             shareItem = TreeShareItem(url: url)
         } catch {}
     }
@@ -213,12 +114,119 @@ struct TreeView: View {
 
 private struct TreeSizePreferenceKey: PreferenceKey {
     static var defaultValue: CGSize = .zero
-    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
-        value = nextValue()
-    }
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) { value = nextValue() }
 }
 
 struct TreeShareItem: Identifiable {
     let id = UUID()
     let url: URL
+}
+
+struct SelectedPerson: Identifiable {
+    var id: String { person.id }
+    let nodeId: UUID
+    let person: FamilyPerson
+}
+
+struct FamilyBranchView: View {
+    let node: FamilyNode
+    let isRoot: Bool
+    let onTapPerson: (FamilyPerson, UUID) -> Void
+    let onAddChild: (UUID) -> Void
+    let onAddSpouse: (UUID) -> Void
+    let onAddParent: () -> Void
+    let exesShown: Bool
+    let isRussian: Bool
+    var showControls: Bool = true
+
+    var body: some View {
+        VStack(spacing: 8) {
+            if isRoot, showControls, let primary = node.people.first, !primary.name.isEmpty {
+                Button { onAddParent() } label: {
+                    Text((isRussian ? "+ Добавить родителей \"" : "+ Add parents of \"") + primary.name + "\"")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundStyle(Theme.gold)
+                connector
+            }
+
+            HStack(spacing: 0) {
+                ForEach(Array(node.people.enumerated()), id: \.element.id) { index, person in
+                    if index == 0 || !person.isEx || exesShown {
+                        if index > 0 { Divider().frame(height: 32).padding(.horizontal, 4) }
+                        personChip(person, nodeId: node.id)
+                    }
+                }
+            }
+            .padding(10)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .shadow(color: Theme.cardShadow, radius: 3, y: 1)
+
+            if showControls {
+                HStack(spacing: 14) {
+                    Button { onAddChild(node.id) } label: {
+                        Text(isRussian ? "+ ребёнок" : "+ child").font(.system(size: 12, weight: .semibold))
+                    }
+                    if node.people.filter({ !$0.isEx }).count < 2 {
+                        Button { onAddSpouse(node.id) } label: {
+                            Text(isRussian ? "+ супруг(а)" : "+ spouse").font(.system(size: 12, weight: .semibold))
+                        }
+                    }
+                }
+                .foregroundStyle(Theme.gold)
+            }
+
+            if !node.children.isEmpty {
+                connector
+                HStack(alignment: .top, spacing: 24) {
+                    ForEach(node.children) { child in
+                        FamilyBranchView(
+                            node: child, isRoot: false,
+                            onTapPerson: onTapPerson, onAddChild: onAddChild, onAddSpouse: onAddSpouse, onAddParent: onAddParent,
+                            exesShown: exesShown, isRussian: isRussian, showControls: showControls
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private func personChip(_ person: FamilyPerson, nodeId: UUID) -> some View {
+        VStack(spacing: 4) {
+            ZStack {
+                Circle().fill((person.sex == .male ? Theme.male : Theme.female).opacity(0.15))
+                if let data = person.photoData, let uiImage = UIImage(data: data) {
+                    Image(uiImage: uiImage).resizable().scaledToFill().clipShape(Circle())
+                } else {
+                    Text(person.avatarInitials)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(person.sex == .male ? Theme.male : Theme.female)
+                }
+            }
+            .frame(width: 38, height: 38)
+            .overlay(Circle().stroke(person.sex == .male ? Theme.male : Theme.female, lineWidth: 2))
+
+            Text(person.name.isEmpty ? "—" : person.name)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(Theme.ink)
+            if !person.years.isEmpty {
+                Text(person.years).font(.system(size: 10)).foregroundStyle(Theme.ink.opacity(0.6))
+            }
+            if person.isEx {
+                Text(isRussian ? "бывш." : "ex")
+                    .font(.system(size: 8, weight: .bold))
+                    .padding(.horizontal, 5).padding(.vertical, 1)
+                    .background(Theme.female)
+                    .foregroundStyle(.white)
+                    .clipShape(Capsule())
+            }
+        }
+        .padding(.horizontal, 6)
+        .onTapGesture { onTapPerson(person, nodeId) }
+    }
+
+    private var connector: some View {
+        Rectangle().fill(Theme.ink.opacity(0.22)).frame(width: 2, height: 14)
+    }
 }
