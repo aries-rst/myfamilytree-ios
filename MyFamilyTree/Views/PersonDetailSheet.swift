@@ -4,7 +4,8 @@ import UIKit
 struct PersonDetailSheet: View {
     @EnvironmentObject var app: AppState
     @Environment(\.dismiss) var dismiss
-    let person: Person
+    let nodeId: UUID
+    let person: FamilyPerson
 
     @State private var editMode: PersonFormMode?
     @State private var showDeleteBlockedAlert = false
@@ -12,14 +13,11 @@ struct PersonDetailSheet: View {
 
     private var isRussian: Bool { app.lang == .ru }
 
-    private var currentPerson: Person {
-        app.people.first(where: { $0.id == person.id }) ?? person
+    private var currentPerson: FamilyPerson {
+        app.root.node(withId: nodeId)?.people.first(where: { $0.id == person.id }) ?? person
     }
 
-    private func digitsOnly(_ s: String) -> String {
-        s.filter { $0.isNumber || $0 == "+" }
-    }
-
+    private func digitsOnly(_ s: String) -> String { s.filter { $0.isNumber || $0 == "+" } }
     private func handle(_ s: String) -> String {
         var t = s.trimmingCharacters(in: .whitespacesAndNewlines)
         if t.hasPrefix("@") { t.removeFirst() }
@@ -32,8 +30,7 @@ struct PersonDetailSheet: View {
                 VStack(spacing: 16) {
                     if let photoData = currentPerson.photoData, let uiImage = UIImage(data: photoData) {
                         Image(uiImage: uiImage)
-                            .resizable()
-                            .scaledToFill()
+                            .resizable().scaledToFill()
                             .frame(width: 150, height: 150)
                             .clipShape(Circle())
                             .overlay(Circle().stroke(Theme.gold, lineWidth: 3))
@@ -52,43 +49,36 @@ struct PersonDetailSheet: View {
                     Text(currentPerson.name.isEmpty ? (isRussian ? "Без имени" : "No name") : currentPerson.name)
                         .font(.system(size: 20, weight: .bold))
                     if !currentPerson.years.isEmpty {
-                        Text(currentPerson.years)
-                            .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
+                        Text(currentPerson.years).font(.system(size: 14)).foregroundStyle(.secondary)
                     }
-                    if !currentPerson.relation.isEmpty {
-                        Text(currentPerson.relation)
-                            .font(.system(size: 14))
-                            .foregroundStyle(Theme.wine)
+                    if currentPerson.isEx {
+                        Text(isRussian ? "Бывш(ий/ая) супруг(а)" : "Former spouse")
+                            .font(.system(size: 13)).foregroundStyle(Theme.wine)
                     }
 
                     contactButtons
 
                     Button {
-                        editMode = .edit(currentPerson)
+                        editMode = .edit(nodeId: nodeId, person: currentPerson)
                     } label: {
-                        Text(isRussian ? "Изменить" : "Edit")
-                            .frame(maxWidth: .infinity)
+                        Text(isRussian ? "Изменить" : "Edit").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Theme.gold)
                     .padding(.horizontal, 24)
 
-                    if currentPerson.role != .root {
-                        Button(role: .destructive) {
-                            if app.canRemove(currentPerson.id) {
-                                showDeleteConfirm = true
-                            } else {
-                                showDeleteBlockedAlert = true
-                            }
-                        } label: {
-                            Text(isRussian ? "Удалить" : "Delete")
-                                .frame(maxWidth: .infinity)
+                    Button(role: .destructive) {
+                        if app.canRemovePerson(nodeId: nodeId, personId: currentPerson.id) {
+                            showDeleteConfirm = true
+                        } else {
+                            showDeleteBlockedAlert = true
                         }
-                        .buttonStyle(.bordered)
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, 24)
+                    } label: {
+                        Text(isRussian ? "Удалить" : "Delete").frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(.bordered)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
                 }
                 .padding(.top, 32)
             }
@@ -100,7 +90,7 @@ struct PersonDetailSheet: View {
             .alert(isRussian ? "Удалить этого человека?" : "Delete this person?", isPresented: $showDeleteConfirm) {
                 Button(isRussian ? "Отмена" : "Cancel", role: .cancel) {}
                 Button(isRussian ? "Удалить" : "Delete", role: .destructive) {
-                    app.removePerson(currentPerson.id)
+                    app.removePerson(nodeId: nodeId, personId: currentPerson.id)
                     dismiss()
                 }
             }
@@ -122,26 +112,21 @@ struct PersonDetailSheet: View {
     private var contactButtons: some View {
         let buttonSize: CGFloat = 64
         let iconSize: CGFloat = 28
-
         HStack(spacing: 14) {
-            if let phone = currentPerson.phone, !phone.isEmpty,
-               let url = URL(string: "tel:\(digitsOnly(phone))") {
+            if let phone = currentPerson.phone, !phone.isEmpty, let url = URL(string: "tel:\(digitsOnly(phone))") {
                 Link(destination: url) { contactIcon("phone.fill", size: buttonSize, iconSize: iconSize) }
             }
-            if let phone = currentPerson.phone, !phone.isEmpty,
-               let url = URL(string: "sms:\(digitsOnly(phone))") {
+            if let phone = currentPerson.phone, !phone.isEmpty, let url = URL(string: "sms:\(digitsOnly(phone))") {
                 Link(destination: url) { contactIcon("bubble.left.fill", size: buttonSize, iconSize: iconSize) }
             }
             if let wa = currentPerson.whatsapp, !wa.isEmpty,
                let url = URL(string: "https://wa.me/\(digitsOnly(wa).replacingOccurrences(of: "+", with: ""))") {
                 Link(destination: url) { contactIcon("message.fill", size: buttonSize, iconSize: iconSize) }
             }
-            if let tg = currentPerson.telegram, !tg.isEmpty,
-               let url = URL(string: "https://t.me/\(handle(tg))") {
+            if let tg = currentPerson.telegram, !tg.isEmpty, let url = URL(string: "https://t.me/\(handle(tg))") {
                 Link(destination: url) { contactIcon("paperplane.fill", size: buttonSize, iconSize: iconSize) }
             }
-            if let ig = currentPerson.instagram, !ig.isEmpty,
-               let url = URL(string: "https://instagram.com/\(handle(ig))") {
+            if let ig = currentPerson.instagram, !ig.isEmpty, let url = URL(string: "https://instagram.com/\(handle(ig))") {
                 Link(destination: url) { contactIcon("camera.fill", size: buttonSize, iconSize: iconSize) }
             }
         }
