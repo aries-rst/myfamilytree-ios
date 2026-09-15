@@ -2,13 +2,17 @@ import SwiftUI
 import PhotosUI
 
 enum PersonFormMode: Identifiable {
-    case add
-    case edit(Person)
+    case addChild(nodeId: UUID)
+    case addSpouse(nodeId: UUID)
+    case addParent
+    case edit(nodeId: UUID, person: FamilyPerson)
 
     var id: String {
         switch self {
-        case .add: return "add"
-        case .edit(let p): return "edit-\(p.id)"
+        case .addChild(let id): return "addChild-\(id)"
+        case .addSpouse(let id): return "addSpouse-\(id)"
+        case .addParent: return "addParent"
+        case .edit(let id, let p): return "edit-\(id)-\(p.id)"
         }
     }
 }
@@ -20,8 +24,6 @@ struct AddPersonSheet: View {
 
     @State private var name: String = ""
     @State private var years: String = ""
-    @State private var relationKind: RelationKind = .child
-    @State private var ancestorSide: AncestorSide = .root
     @State private var sex: Sex = .male
     @State private var isEx: Bool = false
     @State private var phone: String = ""
@@ -32,29 +34,23 @@ struct AddPersonSheet: View {
     @State private var photoData: Data?
 
     private var isRussian: Bool { app.lang == .ru }
-    private var isEditing: Bool {
-        if case .edit = mode { return true }
-        return false
-    }
 
-    enum RelationKind: CaseIterable, Hashable {
-        case parent, spouse, child
-        func label(_ ru: Bool) -> String {
-            switch self {
-            case .parent: return ru ? "Родитель" : "Parent"
-            case .spouse: return ru ? "Супруг(а)" : "Spouse"
-            case .child: return ru ? "Ребёнок" : "Child"
-            }
+    private var showExToggle: Bool {
+        switch mode {
+        case .addSpouse: return true
+        case .edit(let nodeId, let existing):
+            guard let node = app.root.node(withId: nodeId) else { return false }
+            return node.people.first?.id != existing.id
+        default: return false
         }
     }
 
-    enum AncestorSide: CaseIterable, Hashable {
-        case root, partner
-        func label(_ ru: Bool) -> String {
-            switch self {
-            case .root: return ru ? "Моей стороны" : "My side"
-            case .partner: return ru ? "Стороны партнёра" : "Partner's side"
-            }
+    private var sheetTitle: String {
+        switch mode {
+        case .addChild: return isRussian ? "Добавить ребёнка" : "Add child"
+        case .addSpouse: return isRussian ? "Добавить супруга(у)" : "Add spouse"
+        case .addParent: return isRussian ? "Добавить родителя" : "Add parent"
+        case .edit: return isRussian ? "Изменить" : "Edit"
         }
     }
 
@@ -69,6 +65,9 @@ struct AddPersonSheet: View {
                         Text(isRussian ? "Женский" : "Female").tag(Sex.female)
                     }
                     .pickerStyle(.segmented)
+                    if showExToggle {
+                        Toggle(isRussian ? "Бывш(ий/ая)" : "Former", isOn: $isEx)
+                    }
                 }
 
                 Section(isRussian ? "Фото" : "Photo") {
@@ -76,13 +75,11 @@ struct AddPersonSheet: View {
                         HStack {
                             if let photoData, let uiImage = UIImage(data: photoData) {
                                 Image(uiImage: uiImage)
-                                    .resizable()
-                                    .scaledToFill()
+                                    .resizable().scaledToFill()
                                     .frame(width: 44, height: 44)
                                     .clipShape(Circle())
                             } else {
-                                Image(systemName: "photo.badge.plus")
-                                    .font(.system(size: 22))
+                                Image(systemName: "photo.badge.plus").font(.system(size: 22))
                             }
                             Text(isRussian ? "Выбрать фото" : "Choose photo")
                         }
@@ -96,30 +93,6 @@ struct AddPersonSheet: View {
                     }
                 }
 
-                if !isEditing {
-                    Section(isRussian ? "Кем приходится" : "Relation") {
-                        Picker("", selection: $relationKind) {
-                            ForEach(RelationKind.allCases, id: \.self) { kind in
-                                Text(kind.label(isRussian)).tag(kind)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-
-                        if relationKind == .parent && app.rootPartner != nil {
-                            Picker(isRussian ? "Чья сторона" : "Whose side", selection: $ancestorSide) {
-                                ForEach(AncestorSide.allCases, id: \.self) { side in
-                                    Text(side.label(isRussian)).tag(side)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                        }
-
-                        if relationKind != .parent {
-                            Toggle(isRussian ? "Бывш(ий/ая)" : "Former", isOn: $isEx)
-                        }
-                    }
-                }
-
                 Section(isRussian ? "Контакты (необязательно)" : "Contacts (optional)") {
                     TextField(isRussian ? "Телефон" : "Phone", text: $phone)
                     TextField("WhatsApp", text: $whatsapp)
@@ -127,7 +100,7 @@ struct AddPersonSheet: View {
                     TextField("Instagram", text: $instagram)
                 }
             }
-            .navigationTitle(isEditing ? (isRussian ? "Изменить" : "Edit") : (isRussian ? "Новый человек" : "New person"))
+            .navigationTitle(sheetTitle)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(isRussian ? "Отмена" : "Cancel") { dismiss() }
@@ -143,10 +116,11 @@ struct AddPersonSheet: View {
         }
         .presentationDetents([.medium, .large])
         .onAppear {
-            if case .edit(let person) = mode {
+            if case .edit(_, let person) = mode {
                 name = person.name
                 years = person.years
                 sex = person.sex
+                isEx = person.isEx
                 phone = person.phone ?? ""
                 whatsapp = person.whatsapp ?? ""
                 telegram = person.telegram ?? ""
@@ -156,33 +130,30 @@ struct AddPersonSheet: View {
         }
     }
 
+    private func makePerson(_ name: String) -> FamilyPerson {
+        FamilyPerson(
+            name: name, years: years, sex: sex, isEx: isEx,
+            phone: phone.isEmpty ? nil : phone,
+            whatsapp: whatsapp.isEmpty ? nil : whatsapp,
+            telegram: telegram.isEmpty ? nil : telegram,
+            instagram: instagram.isEmpty ? nil : instagram,
+            photoData: photoData
+        )
+    }
+
     private func save() {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         switch mode {
-        case .add:
-            let role: PersonRole
-            switch relationKind {
-            case .parent: role = ancestorSide == .root ? .ancestorRoot : .ancestorPartner
-            case .spouse: role = .rootPartner
-            case .child: role = .child
-            }
-            let relationLabel: String
-            switch relationKind {
-            case .parent: relationLabel = isRussian ? "Родитель" : "Parent"
-            case .spouse: relationLabel = isRussian ? "Супруг(а)" : "Spouse"
-            case .child: relationLabel = isRussian ? "Ребёнок" : "Child"
-            }
-            app.addPerson(
-                name: trimmedName, years: years, relation: relationLabel,
-                sex: sex, role: role, isEx: isEx,
-                phone: phone, whatsapp: whatsapp, telegram: telegram, instagram: instagram,
-                photoData: photoData
-            )
-        case .edit(let person):
+        case .addChild(let nodeId):
+            app.addChild(to: nodeId, person: makePerson(trimmedName))
+        case .addSpouse(let nodeId):
+            app.addSpouse(to: nodeId, person: makePerson(trimmedName))
+        case .addParent:
+            app.addParent(person: makePerson(trimmedName))
+        case .edit(let nodeId, let existing):
             app.updatePerson(
-                person.id, name: trimmedName, years: years, relation: person.relation,
-                sex: sex, phone: phone, whatsapp: whatsapp, telegram: telegram, instagram: instagram,
-                photoData: photoData
+                nodeId: nodeId, personId: existing.id, name: trimmedName, years: years, sex: sex, isEx: isEx,
+                phone: phone, whatsapp: whatsapp, telegram: telegram, instagram: instagram, photoData: photoData
             )
         }
     }
