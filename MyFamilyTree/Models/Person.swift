@@ -24,6 +24,7 @@ struct Person: Identifiable, Hashable {
     var whatsapp: String?
     var telegram: String?
     var instagram: String?
+    var photoData: Data?
     var isExSpouse: Bool = false
     var isExChild: Bool = false
 }
