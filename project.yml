@@ -18,6 +18,8 @@ targets:
       path: MyFamilyTree/Info.plist
       properties:
         CFBundleDisplayName: "MyFamilyTree"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -31,7 +33,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.aries-rst.myfamilytree.app
         MARKETING_VERSION: "1.0"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        CURRENT_PROJECT_VERSION: "1"
+        CURRENT_PROJECT_VERSION: "2"
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1,2"
         ENABLE_PREVIEWS: YES
