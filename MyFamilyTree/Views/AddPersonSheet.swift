@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 enum PersonFormMode: Identifiable {
     case add
@@ -27,6 +28,8 @@ struct AddPersonSheet: View {
     @State private var whatsapp: String = ""
     @State private var telegram: String = ""
     @State private var instagram: String = ""
+    @State private var photoItem: PhotosPickerItem?
+    @State private var photoData: Data?
 
     private var isRussian: Bool { app.lang == .ru }
     private var isEditing: Bool {
@@ -66,6 +69,31 @@ struct AddPersonSheet: View {
                         Text(isRussian ? "Женский" : "Female").tag(Sex.female)
                     }
                     .pickerStyle(.segmented)
+                }
+
+                Section(isRussian ? "Фото" : "Photo") {
+                    PhotosPicker(selection: $photoItem, matching: .images) {
+                        HStack {
+                            if let photoData, let uiImage = UIImage(data: photoData) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 44, height: 44)
+                                    .clipShape(Circle())
+                            } else {
+                                Image(systemName: "photo.badge.plus")
+                                    .font(.system(size: 22))
+                            }
+                            Text(isRussian ? "Выбрать фото" : "Choose photo")
+                        }
+                    }
+                    .onChange(of: photoItem) { newItem in
+                        Task {
+                            if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                                photoData = data
+                            }
+                        }
+                    }
                 }
 
                 if !isEditing {
@@ -123,6 +151,7 @@ struct AddPersonSheet: View {
                 whatsapp = person.whatsapp ?? ""
                 telegram = person.telegram ?? ""
                 instagram = person.instagram ?? ""
+                photoData = person.photoData
             }
         }
     }
@@ -146,12 +175,14 @@ struct AddPersonSheet: View {
             app.addPerson(
                 name: trimmedName, years: years, relation: relationLabel,
                 sex: sex, role: role, isEx: isEx,
-                phone: phone, whatsapp: whatsapp, telegram: telegram, instagram: instagram
+                phone: phone, whatsapp: whatsapp, telegram: telegram, instagram: instagram,
+                photoData: photoData
             )
         case .edit(let person):
             app.updatePerson(
                 person.id, name: trimmedName, years: years, relation: person.relation,
-                sex: sex, phone: phone, whatsapp: whatsapp, telegram: telegram, instagram: instagram
+                sex: sex, phone: phone, whatsapp: whatsapp, telegram: telegram, instagram: instagram,
+                photoData: photoData
             )
         }
     }
