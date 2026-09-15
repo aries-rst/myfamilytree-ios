@@ -33,16 +33,8 @@ final class AppState: ObservableObject {
     }
 
     func addPerson(
-        name: String,
-        years: String,
-        relation: String,
-        sex: Sex,
-        role: PersonRole,
-        isEx: Bool,
-        phone: String,
-        whatsapp: String,
-        telegram: String,
-        instagram: String
+        name: String, years: String, relation: String, sex: Sex, role: PersonRole, isEx: Bool,
+        phone: String, whatsapp: String, telegram: String, instagram: String, photoData: Data?
     ) {
         guard canAddPerson else { return }
         var finalIsEx = isEx
@@ -51,16 +43,14 @@ final class AppState: ObservableObject {
         }
         let person = Person(
             id: UUID().uuidString,
-            name: name,
-            years: years,
-            relation: relation,
+            name: name, years: years, relation: relation,
             avatarInitials: Self.initials(from: name),
-            sex: sex,
-            role: role,
+            sex: sex, role: role,
             phone: phone.isEmpty ? nil : phone,
             whatsapp: whatsapp.isEmpty ? nil : whatsapp,
             telegram: telegram.isEmpty ? nil : telegram,
             instagram: instagram.isEmpty ? nil : instagram,
+            photoData: photoData,
             isExSpouse: role == .rootPartner ? finalIsEx : false,
             isExChild: role == .child ? isEx : false
         )
@@ -68,15 +58,8 @@ final class AppState: ObservableObject {
     }
 
     func updatePerson(
-        _ id: String,
-        name: String,
-        years: String,
-        relation: String,
-        sex: Sex,
-        phone: String,
-        whatsapp: String,
-        telegram: String,
-        instagram: String
+        _ id: String, name: String, years: String, relation: String, sex: Sex,
+        phone: String, whatsapp: String, telegram: String, instagram: String, photoData: Data?
     ) {
         guard let index = people.firstIndex(where: { $0.id == id }) else { return }
         people[index].name = name
@@ -88,14 +71,12 @@ final class AppState: ObservableObject {
         people[index].whatsapp = whatsapp.isEmpty ? nil : whatsapp
         people[index].telegram = telegram.isEmpty ? nil : telegram
         people[index].instagram = instagram.isEmpty ? nil : instagram
+        people[index].photoData = photoData
     }
 
-    /// Человека нельзя удалить, пока у него есть дети в дереве — как в Android-версии.
     func canRemove(_ id: String) -> Bool {
         guard let person = people.first(where: { $0.id == id }) else { return false }
-        if person.role == .root {
-            return false
-        }
+        if person.role == .root { return false }
         if person.role == .rootPartner {
             return !people.contains { $0.role == .child }
         }
