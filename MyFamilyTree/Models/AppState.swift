@@ -17,6 +17,10 @@ final class AppState: ObservableObject {
         load()
     }
 
+    func t(_ key: L) -> String {
+        Strings.t(key, lang)
+    }
+
     private func save() {
         if let data = try? JSONEncoder().encode(root) {
             UserDefaults.standard.set(data, forKey: rootKey)
