@@ -1,5 +1,12 @@
 import SwiftUI
 
+private struct TreeSizePreferenceKey: PreferenceKey {
+    static var defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        value = nextValue()
+    }
+}
+
 struct TreeView: View {
     @EnvironmentObject var app: AppState
 
@@ -8,18 +15,39 @@ struct TreeView: View {
     @State private var selectedPerson: Person?
     @State private var showAddSheet = false
     @State private var showLimitSheet = false
+    @State private var naturalSize: CGSize = .zero
 
     private var displayedZoom: CGFloat {
         min(1.4, max(0.6, zoom * pinchDelta))
     }
+
+    private var isRussian: Bool { app.lang == .ru }
+
+    private var ancestorsRoot: [Person] { app.people.filter { $0.role == .ancestorRoot } }
+    private var ancestorsPartner: [Person] { app.people.filter { $0.role == .ancestorPartner } }
+    private var rootPerson: Person? { app.people.first(where: { $0.role == .root }) }
+    private var partners: [Person] { app.people.filter { $0.role == .rootPartner } }
+    private var children: [Person] { app.people.filter { $0.role == .child } }
 
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
                 ScrollView([.horizontal, .vertical]) {
                     treeCanvas
-                        .scaleEffect(displayedZoom)
                         .padding(40)
+                        .background(
+                            GeometryReader { geo in
+                                Color.clear.preference(key: TreeSizePreferenceKey.self, value: geo.size)
+                            }
+                        )
+                        .scaleEffect(displayedZoom, anchor: .topLeading)
+                        .frame(
+                            width: naturalSize.width * displayedZoom,
+                            height: naturalSize.height * displayedZoom
+                        )
+                }
+                .onPreferenceChange(TreeSizePreferenceKey.self) { size in
+                    naturalSize = size
                 }
                 .background(Theme.paper.opacity(0.4))
 
@@ -56,65 +84,85 @@ struct TreeView: View {
                     .tint(Theme.wine)
                 }
             }
+            .sheet(item: $selectedPerson) { person in
+                PersonDetailSheet(person: person)
+            }
+            .sheet(isPresented: $showAddSheet) {
+                AddPersonSheet(mode: .add)
+            }
+            .sheet(isPresented: $showLimitSheet) {
+                LimitPaywallSheet()
+            }
         }
         .simultaneousGesture(
             MagnificationGesture()
                 .updating($pinchDelta) { value, state, _ in state = value }
                 .onEnded { value in zoom = min(1.4, max(0.6, zoom * value)) }
         )
-        .sheet(item: $selectedPerson) { person in
-            PersonDetailSheet(person: person)
-        }
-        .sheet(isPresented: $showAddSheet) {
-            AddPersonSheet()
-        }
-        .sheet(isPresented: $showLimitSheet) {
-            LimitPaywallSheet()
-        }
     }
 
     private var treeCanvas: some View {
         VStack(spacing: 16) {
-            HStack(alignment: .top, spacing: 28) {
-                ancestorGroup(label: "Родители — Азиз", pair: DemoFamily.ancestorsA)
-                ancestorGroup(label: "Родители — Нилуфар", pair: DemoFamily.ancestorsN)
+            if !ancestorsRoot.isEmpty || !ancestorsPartner.isEmpty {
+                HStack(alignment: .top, spacing: 28) {
+                    if !ancestorsRoot.isEmpty {
+                        ancestorGroup(label: isRussian ? "МОИ РОДИТЕЛИ" : "MY PARENTS", pair: ancestorsRoot)
+                    }
+                    if !ancestorsPartner.isEmpty {
+                        ancestorGroup(label: isRussian ? "РОДИТЕЛИ ПАРТНЁРА" : "PARTNER'S PARENTS", pair: ancestorsPartner)
+                    }
+                }
+                connector
             }
-            connector
 
             HStack(spacing: 10) {
-                PersonCard(person: app.people.first(where: { $0.id == "p-aziz" }) ?? DemoFamily.aziz, emphasized: true)
-                    .onTapGesture { selectedPerson = DemoFamily.aziz }
-                Text("⚭").font(.system(size: 20)).foregroundStyle(Theme.gold)
-                PersonCard(person: DemoFamily.nilufar, emphasized: true)
-                    .onTapGesture { selectedPerson = DemoFamily.nilufar }
-                if app.exesShown {
-                    PersonCard(person: DemoFamily.gulnora, emphasized: true)
-                        .overlay(alignment: .top) {
-                            Text("бывшая супруга")
-                                .font(.system(size: 9, weight: .bold))
-                                .padding(.horizontal, 6).padding(.vertical, 2)
-                                .background(Theme.female)
-                                .foregroundStyle(.white)
-                                .clipShape(Capsule())
-                                .offset(y: -9)
+                if let root = rootPerson {
+                    PersonCard(person: root, emphasized: true)
+                        .onTapGesture { selectedPerson = root }
+                }
+                ForEach(partners) { partner in
+                    if !partner.isExSpouse || app.exesShown {
+                        HStack(spacing: 10) {
+                            Text("⚭").font(.system(size: 20)).foregroundStyle(Theme.gold)
+                            PersonCard(person: partner, emphasized: true)
+                                .overlay(alignment: .top) {
+                                    if partner.isExSpouse {
+                                        Text(isRussian ? "бывшая супруга" : "former spouse")
+                                            .font(.system(size: 9, weight: .bold))
+                                            .padding(.horizontal, 6).padding(.vertical, 2)
+                                            .background(Theme.female)
+                                            .foregroundStyle(.white)
+                                            .clipShape(Capsule())
+                                            .offset(y: -9)
+                                    }
+                                }
+                                .onTapGesture { selectedPerson = partner }
                         }
-                        .onTapGesture { selectedPerson = DemoFamily.gulnora }
                         .transition(.scale.combined(with: .opacity))
+                    }
                 }
             }
-            connector
 
-            HStack(spacing: 12) {
-                ForEach(DemoFamily.children) { child in
-                    if !child.isExChild || app.exesShown {
-                        PersonCard(person: child)
-                            .onTapGesture { selectedPerson = child }
-                            .transition(.scale.combined(with: .opacity))
+            if !children.isEmpty {
+                connector
+                HStack(spacing: 12) {
+                    ForEach(children) { child in
+                        if !child.isExChild || app.exesShown {
+                            PersonCard(person: child)
+                                .onTapGesture { selectedPerson = child }
+                                .transition(.scale.combined(with: .opacity))
+                        }
                     }
                 }
             }
         }
         .animation(.easeInOut(duration: 0.2), value: app.exesShown)
+    }
+
+    private var connector: some View {
+        Rectangle()
+            .fill(Theme.ink.opacity(0.22))
+            .frame(width: 2, height: 22)
     }
 
     private func ancestorGroup(label: String, pair: [Person]) -> some View {
@@ -130,11 +178,5 @@ struct TreeView: View {
                 }
             }
         }
-    }
-
-    private var connector: some View {
-        Rectangle()
-            .fill(Theme.ink.opacity(0.22))
-            .frame(width: 2, height: 22)
     }
 }
