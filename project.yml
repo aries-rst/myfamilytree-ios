@@ -1,6 +1,6 @@
 name: MyFamilyTree
 options:
-  bundleIdPrefix: com.aries-rst.myfamilytree
+  bundleIdPrefix: com.aries-rst.myfamilytree.app
   deploymentTarget:
     iOS: "16.0"
   createIntermediateGroups: true
