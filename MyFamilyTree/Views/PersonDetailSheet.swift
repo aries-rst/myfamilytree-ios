@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct PersonDetailSheet: View {
     @EnvironmentObject var app: AppState
@@ -18,14 +19,22 @@ struct PersonDetailSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
-                Circle()
-                    .fill((currentPerson.sex == .male ? Theme.male : Theme.female).opacity(0.15))
-                    .frame(width: 72, height: 72)
-                    .overlay(
-                        Text(currentPerson.avatarInitials)
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundStyle(currentPerson.sex == .male ? Theme.male : Theme.female)
-                    )
+                if let photoData = currentPerson.photoData, let uiImage = UIImage(data: photoData) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 72, height: 72)
+                        .clipShape(Circle())
+                } else {
+                    Circle()
+                        .fill((currentPerson.sex == .male ? Theme.male : Theme.female).opacity(0.15))
+                        .frame(width: 72, height: 72)
+                        .overlay(
+                            Text(currentPerson.avatarInitials)
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundStyle(currentPerson.sex == .male ? Theme.male : Theme.female)
+                        )
+                }
 
                 Text(currentPerson.name.isEmpty ? (isRussian ? "Без имени" : "No name") : currentPerson.name)
                     .font(.system(size: 18, weight: .bold))
