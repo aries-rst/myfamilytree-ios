@@ -2,65 +2,105 @@ import SwiftUI
 
 struct PersonDetailSheet: View {
     @EnvironmentObject var app: AppState
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismiss) var dismiss
     let person: Person
 
-    private var contactIcons: [String] {
-        var icons: [String] = []
-        if person.phone != nil { icons.append("phone.fill") }
-        if person.whatsapp != nil { icons.append("message.fill") }
-        if person.telegram != nil { icons.append("paperplane.fill") }
-        if person.instagram != nil { icons.append("camera.fill") }
-        return icons
+    @State private var editMode: PersonFormMode?
+    @State private var showDeleteBlockedAlert = false
+    @State private var showDeleteConfirm = false
+
+    private var isRussian: Bool { app.lang == .ru }
+
+    private var currentPerson: Person {
+        app.people.first(where: { $0.id == person.id }) ?? person
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle().fill(Theme.paper)
-                    Text(person.avatarInitials).font(.system(size: 18, weight: .bold))
-                }
-                .frame(width: 58, height: 58)
+        NavigationStack {
+            VStack(spacing: 16) {
+                Circle()
+                    .fill((currentPerson.sex == .male ? Theme.male : Theme.female).opacity(0.15))
+                    .frame(width: 72, height: 72)
+                    .overlay(
+                        Text(currentPerson.avatarInitials)
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundStyle(currentPerson.sex == .male ? Theme.male : Theme.female)
+                    )
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(person.name).font(.system(size: 19, weight: .bold))
-                    Text("\(person.years) · \(person.relation)")
+                Text(currentPerson.name.isEmpty ? (isRussian ? "Без имени" : "No name") : currentPerson.name)
+                    .font(.system(size: 18, weight: .bold))
+                if !currentPerson.years.isEmpty {
+                    Text(currentPerson.years)
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                 }
-            }
-
-            if !contactIcons.isEmpty {
-                HStack(spacing: 10) {
-                    ForEach(contactIcons, id: \.self) { icon in
-                        Image(systemName: icon)
-                            .frame(width: 38, height: 38)
-                            .background(Color.white)
-                            .clipShape(Circle())
-                            .shadow(color: Theme.cardShadow, radius: 3, y: 1)
-                    }
+                if !currentPerson.relation.isEmpty {
+                    Text(currentPerson.relation)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.wine)
                 }
-            }
 
-            Spacer()
+                HStack(spacing: 18) {
+                    if currentPerson.phone != nil { Image(systemName: "phone.fill") }
+                    if currentPerson.whatsapp != nil { Image(systemName: "message.fill") }
+                    if currentPerson.telegram != nil { Image(systemName: "paperplane.fill") }
+                    if currentPerson.instagram != nil { Image(systemName: "camera.fill") }
+                }
+                .foregroundStyle(Theme.gold)
+                .font(.system(size: 18))
 
-            HStack(spacing: 10) {
+                Spacer()
+
                 Button {
-                    // TODO: real edit form once persistence lands
+                    editMode = .edit(currentPerson)
                 } label: {
-                    Text(app.lang == .ru ? "Изменить" : "Edit")
+                    Text(isRussian ? "Изменить" : "Edit")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Theme.wine)
+                .tint(Theme.gold)
+                .padding(.horizontal, 24)
 
-                Button(app.t(.close)) { dismiss() }
+                if currentPerson.role != .root {
+                    Button(role: .destructive) {
+                        if app.canRemove(currentPerson.id) {
+                            showDeleteConfirm = true
+                        } else {
+                            showDeleteBlockedAlert = true
+                        }
+                    } label: {
+                        Text(isRussian ? "Удалить" : "Delete")
+                            .frame(maxWidth: .infinity)
+                    }
                     .buttonStyle(.bordered)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
+                }
+            }
+            .padding(.top, 32)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(isRussian ? "Закрыть" : "Close") { dismiss() }
+                }
+            }
+            .alert(isRussian ? "Удалить этого человека?" : "Delete this person?", isPresented: $showDeleteConfirm) {
+                Button(isRussian ? "Отмена" : "Cancel", role: .cancel) {}
+                Button(isRussian ? "Удалить" : "Delete", role: .destructive) {
+                    app.removePerson(currentPerson.id)
+                    dismiss()
+                }
+            }
+            .alert(isRussian ? "Нельзя удалить" : "Can't delete", isPresented: $showDeleteBlockedAlert) {
+                Button(isRussian ? "Понятно" : "OK", role: .cancel) {}
+            } message: {
+                Text(isRussian
+                     ? "У этого человека есть дети в дереве — сначала удалите их, потом можно будет удалить и его."
+                     : "This person has children in the tree — remove them first before you can delete this person.")
             }
         }
-        .padding(20)
+        .sheet(item: $editMode) { mode in
+            AddPersonSheet(mode: mode)
+        }
         .presentationDetents([.medium])
-        .presentationDragIndicator(.visible)
     }
 }
