@@ -9,7 +9,6 @@ struct TreeView: View {
     @State private var naturalSize: CGSize = .zero
     @State private var selectedPerson: SelectedPerson?
     @State private var formMode: PersonFormMode?
-    @State private var shareItem: TreeShareItem?
 
     private var isRussian: Bool { app.lang == .ru }
     private var displayedZoom: CGFloat { min(1.4, max(0.6, zoom * pinchDelta)) }
@@ -39,14 +38,6 @@ struct TreeView: View {
             .navigationTitle(isRussian ? "Семейное древо" : "Family Tree")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button(isRussian ? "Экспорт в PNG" : "Export as PNG") { exportPNG() }
-                        Button(isRussian ? "Экспорт в PDF" : "Export as PDF") { exportPDF() }
-                    } label: {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
                     Button(app.lang == .ru ? "RU" : "EN") {
                         app.lang = app.lang == .ru ? .en : .ru
                     }
@@ -72,43 +63,9 @@ struct TreeView: View {
         .sheet(item: $formMode) { mode in
             AddPersonSheet(mode: mode)
         }
-        .sheet(item: $shareItem) { item in
-            ShareSheet(activityItems: [item.url])
-        }
         .sheet(isPresented: $app.showLimitSheet) {
             LimitPaywallSheet()
         }
-    }
-
-    @MainActor
-    private func renderImage() -> UIImage? {
-        let content = FamilyBranchView(
-            node: app.root, isRoot: false,
-            onTapPerson: { _, _ in }, onAddChild: { _ in }, onAddSpouse: { _ in }, onAddParent: {},
-            exesShown: app.exesShown, isRussian: isRussian, showControls: false
-        )
-        .padding(30)
-        .background(Color.white)
-        .environmentObject(app)
-        let renderer = ImageRenderer(content: content)
-        renderer.scale = 3
-        return renderer.uiImage
-    }
-
-    private func exportPNG() {
-        guard let image = renderImage(), let data = image.pngData() else { return }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("family-tree-\(Int(Date().timeIntervalSince1970)).png")
-        do { try data.write(to: url); shareItem = TreeShareItem(url: url) } catch {}
-    }
-
-    private func exportPDF() {
-        guard let image = renderImage() else { return }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("family-tree-\(Int(Date().timeIntervalSince1970)).pdf")
-        let pdfRenderer = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: image.size))
-        do {
-            try pdfRenderer.writePDF(to: url) { ctx in ctx.beginPage(); image.draw(at: .zero) }
-            shareItem = TreeShareItem(url: url)
-        } catch {}
     }
 }
 
