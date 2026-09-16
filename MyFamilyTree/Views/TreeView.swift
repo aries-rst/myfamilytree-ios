@@ -100,10 +100,13 @@ struct FamilyBranchView: View {
         VStack(spacing: 8) {
             if isRoot, showControls, let primary = node.people.first, !primary.name.isEmpty {
                 Button { onAddParent() } label: {
-                    Text((isRussian ? "+ Добавить родителей \"" : "+ Add parents of \"") + primary.name + "\"")
-                        .font(.system(size: 12, weight: .semibold))
+                    Text((isRussian ? "+ Родители \"" : "+ Parents of \"") + primary.name + "\"")
+                        .font(.system(size: 12, weight: .bold))
+                        .padding(.horizontal, 12).padding(.vertical, 6)
+                        .background(Theme.gold)
+                        .foregroundStyle(.white)
+                        .clipShape(Capsule())
                 }
-                .foregroundStyle(Theme.gold)
                 connector
             }
 
@@ -121,17 +124,26 @@ struct FamilyBranchView: View {
             .shadow(color: Theme.cardShadow, radius: 3, y: 1)
 
             if showControls {
-                HStack(spacing: 14) {
+                HStack(spacing: 10) {
                     Button { onAddChild(node.id) } label: {
-                        Text(isRussian ? "+ ребёнок" : "+ child").font(.system(size: 12, weight: .semibold))
+                        Text(isRussian ? "+ ребёнок" : "+ child")
+                            .font(.system(size: 11, weight: .bold))
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                            .background(Theme.gold)
+                            .foregroundStyle(.white)
+                            .clipShape(Capsule())
                     }
                     if node.people.filter({ !$0.isEx }).count < 2 {
                         Button { onAddSpouse(node.id) } label: {
-                            Text(isRussian ? "+ супруг(а)" : "+ spouse").font(.system(size: 12, weight: .semibold))
+                            Text(isRussian ? "+ супруг(а)" : "+ spouse")
+                                .font(.system(size: 11, weight: .bold))
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .background(Theme.wine)
+                                .foregroundStyle(.white)
+                                .clipShape(Capsule())
                         }
                     }
                 }
-                .foregroundStyle(Theme.gold)
             }
 
             if !node.children.isEmpty {
