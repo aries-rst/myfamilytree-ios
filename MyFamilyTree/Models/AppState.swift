@@ -8,10 +8,12 @@ final class AppState: ObservableObject {
     @Published var exesShown: Bool = false
     @Published var showLimitSheet: Bool = false
     @Published var root: FamilyNode = FamilyNode(people: [FamilyPerson(name: "", sex: .male)]) { didSet { save() } }
+    @Published var hasParentTier: Bool = false { didSet { save() } }
 
     private let rootKey = "myfamilytree.root"
     private let isProKey = "myfamilytree.isPro"
     private let langKey = "myfamilytree.lang"
+    private let hasParentTierKey = "myfamilytree.hasParentTier"
 
     init() {
         load()
@@ -27,6 +29,7 @@ final class AppState: ObservableObject {
         }
         UserDefaults.standard.set(isPro, forKey: isProKey)
         UserDefaults.standard.set(lang == .ru ? "ru" : "en", forKey: langKey)
+        UserDefaults.standard.set(hasParentTier, forKey: hasParentTierKey)
     }
 
     private func load() {
@@ -38,6 +41,12 @@ final class AppState: ObservableObject {
         if let langRaw = UserDefaults.standard.string(forKey: langKey) {
             lang = langRaw == "ru" ? .ru : .en
         }
+        hasParentTier = UserDefaults.standard.bool(forKey: hasParentTierKey)
+    }
+
+    func resetAllData() {
+        root = FamilyNode(people: [FamilyPerson(name: "", sex: .male)])
+        hasParentTier = false
     }
 
     var peopleCount: Int { root.countAll() }
@@ -56,8 +65,10 @@ final class AppState: ObservableObject {
     }
 
     func addParent(person: FamilyPerson) {
+        guard !hasParentTier else { return }
         guard canAddPerson else { showLimitSheet = true; return }
         root = FamilyNode(people: [person], children: [root])
+        hasParentTier = true
     }
 
     func updatePerson(
