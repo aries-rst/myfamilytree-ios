@@ -28,6 +28,7 @@ struct TreeView: View {
                         exesShown: app.exesShown, isRussian: isRussian, hasParentTier: app.hasParentTier
                     )
                     .padding(40)
+                    .fixedSize()
                     .scaleEffect(scale)
                     .offset(offset)
                 }
