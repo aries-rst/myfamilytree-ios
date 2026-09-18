@@ -4,14 +4,14 @@ import PhotosUI
 enum PersonFormMode: Identifiable {
     case addChild(nodeId: UUID)
     case addSpouse(nodeId: UUID)
-    case addParent
+    case addParent(nodeId: UUID, personId: String, personName: String)
     case edit(nodeId: UUID, person: FamilyPerson)
 
     var id: String {
         switch self {
         case .addChild(let id): return "addChild-\(id)"
         case .addSpouse(let id): return "addSpouse-\(id)"
-        case .addParent: return "addParent"
+        case .addParent(let id, let personId, _): return "addParent-\(id)-\(personId)"
         case .edit(let id, let p): return "edit-\(id)-\(p.id)"
         }
     }
@@ -49,7 +49,7 @@ struct AddPersonSheet: View {
         switch mode {
         case .addChild: return isRussian ? "Добавить ребёнка" : "Add child"
         case .addSpouse: return isRussian ? "Добавить супруга(у)" : "Add spouse"
-        case .addParent: return isRussian ? "Добавить родителя" : "Add parent"
+        case .addParent(_, _, let name): return (isRussian ? "Родители — " : "Parents of ") + name
         case .edit: return isRussian ? "Изменить" : "Edit"
         }
     }
@@ -148,8 +148,8 @@ struct AddPersonSheet: View {
             app.addChild(to: nodeId, person: makePerson(trimmedName))
         case .addSpouse(let nodeId):
             app.addSpouse(to: nodeId, person: makePerson(trimmedName))
-        case .addParent:
-            app.addParent(person: makePerson(trimmedName))
+        case .addParent(let nodeId, let personId, _):
+            app.addParent(to: nodeId, personId: personId, person: makePerson(trimmedName))
         case .edit(let nodeId, let existing):
             app.updatePerson(
                 nodeId: nodeId, personId: existing.id, name: trimmedName, years: years, sex: sex, isEx: isEx,
