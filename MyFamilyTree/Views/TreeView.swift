@@ -24,8 +24,11 @@ struct TreeView: View {
                         onTapPerson: { person, nodeId in selectedPerson = SelectedPerson(nodeId: nodeId, person: person) },
                         onAddChild: { nodeId in formMode = .addChild(nodeId: nodeId) },
                         onAddSpouse: { nodeId in formMode = .addSpouse(nodeId: nodeId) },
-                        onAddParent: { formMode = .addParent },
-                        exesShown: app.exesShown, isRussian: isRussian, hasParentTier: app.hasParentTier
+                        onAddParent: { nodeId, personId in
+                            let name = app.root.node(withId: nodeId)?.people.first(where: { $0.id == personId })?.name ?? ""
+                            formMode = .addParent(nodeId: nodeId, personId: personId, personName: name)
+                        },
+                        exesShown: app.exesShown, isRussian: isRussian
                     )
                     .padding(40)
                     .fixedSize()
@@ -108,24 +111,19 @@ struct FamilyBranchView: View {
     let onTapPerson: (FamilyPerson, UUID) -> Void
     let onAddChild: (UUID) -> Void
     let onAddSpouse: (UUID) -> Void
-    let onAddParent: () -> Void
+    let onAddParent: (UUID, String) -> Void
     let exesShown: Bool
     let isRussian: Bool
     var showControls: Bool = true
-    var hasParentTier: Bool = false
 
     var body: some View {
         VStack(spacing: 8) {
-            if isRoot, showControls, !hasParentTier, let primary = node.people.first, !primary.name.isEmpty {
-                Button { onAddParent() } label: {
-                    Text((isRussian ? "+ Родители \"" : "+ Parents of \"") + primary.name + "\"")
-                        .font(.system(size: 12, weight: .bold))
-                        .padding(.horizontal, 12).padding(.vertical, 6)
-                        .background(Theme.gold)
-                        .foregroundStyle(.white)
-                        .clipShape(Capsule())
+            if isRoot, showControls {
+                HStack(alignment: .bottom, spacing: 24) {
+                    ForEach(node.people) { person in
+                        ancestorSlot(for: person)
+                    }
                 }
-                connector
             }
 
             HStack(spacing: 0) {
@@ -146,6 +144,7 @@ struct FamilyBranchView: View {
                     Button { onAddChild(node.id) } label: {
                         Text(isRussian ? "+ ребёнок" : "+ child")
                             .font(.system(size: 11, weight: .bold))
+                            .fixedSize()
                             .padding(.horizontal, 10).padding(.vertical, 5)
                             .background(Theme.gold)
                             .foregroundStyle(.white)
@@ -154,6 +153,7 @@ struct FamilyBranchView: View {
                     Button { onAddSpouse(node.id) } label: {
                         Text(isRussian ? "+ супруг(а)" : "+ spouse")
                             .font(.system(size: 11, weight: .bold))
+                            .fixedSize()
                             .padding(.horizontal, 10).padding(.vertical, 5)
                             .background(Theme.wine)
                             .foregroundStyle(.white)
@@ -169,10 +169,53 @@ struct FamilyBranchView: View {
                         FamilyBranchView(
                             node: child, isRoot: false,
                             onTapPerson: onTapPerson, onAddChild: onAddChild, onAddSpouse: onAddSpouse, onAddParent: onAddParent,
-                            exesShown: exesShown, isRussian: isRussian, showControls: showControls, hasParentTier: hasParentTier
+                            exesShown: exesShown, isRussian: isRussian, showControls: showControls
                         )
                     }
                 }
+            }
+        }
+    }
+
+    /// Renders, above one specific person in the top row, either their existing parent
+    /// pair (with a way to complete it if only one parent has been added so far), or a
+    /// "+ Parents of X" button to start one. Each person in the row gets their own slot.
+    @ViewBuilder
+    private func ancestorSlot(for person: FamilyPerson) -> some View {
+        VStack(spacing: 8) {
+            if let ancestorNode = node.ancestors[person.id] {
+                HStack(spacing: 0) {
+                    ForEach(Array(ancestorNode.people.enumerated()), id: \.element.id) { index, ancestor in
+                        if index > 0 { Divider().frame(height: 28).padding(.horizontal, 4) }
+                        personChip(ancestor, nodeId: ancestorNode.id)
+                    }
+                }
+                .padding(8)
+                .background(Color.white.opacity(0.7))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                if showControls, ancestorNode.people.count < 2 {
+                    Button { onAddSpouse(ancestorNode.id) } label: {
+                        Text(isRussian ? "+ супруг(а)" : "+ spouse")
+                            .font(.system(size: 10, weight: .bold))
+                            .fixedSize()
+                            .padding(.horizontal, 8).padding(.vertical, 4)
+                            .background(Theme.wine)
+                            .foregroundStyle(.white)
+                            .clipShape(Capsule())
+                    }
+                }
+                connector
+            } else if !person.name.isEmpty {
+                Button { onAddParent(node.id, person.id) } label: {
+                    Text((isRussian ? "+ Родители \"" : "+ Parents of \"") + person.name + "\"")
+                        .font(.system(size: 11, weight: .bold))
+                        .fixedSize()
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(Theme.gold)
+                        .foregroundStyle(.white)
+                        .clipShape(Capsule())
+                }
+                connector
             }
         }
     }
@@ -195,12 +238,17 @@ struct FamilyBranchView: View {
             Text(person.name.isEmpty ? "—" : person.name)
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(Theme.ink)
+                .fixedSize()
             if !person.years.isEmpty {
-                Text(person.years).font(.system(size: 10)).foregroundStyle(Theme.ink.opacity(0.6))
+                Text(person.years)
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.ink.opacity(0.6))
+                    .fixedSize()
             }
             if person.isEx {
                 Text(isRussian ? "бывш." : "ex")
                     .font(.system(size: 8, weight: .bold))
+                    .fixedSize()
                     .padding(.horizontal, 5).padding(.vertical, 1)
                     .background(Theme.female)
                     .foregroundStyle(.white)
