@@ -53,7 +53,7 @@ struct ExportView: View {
     private func renderImage() -> UIImage? {
         let content = FamilyBranchView(
             node: app.root, isRoot: false,
-            onTapPerson: { _, _ in }, onAddChild: { _ in }, onAddSpouse: { _ in }, onAddParent: {},
+            onTapPerson: { _, _ in }, onAddChild: { _ in }, onAddSpouse: { _ in }, onAddParent: { _, _ in },
             exesShown: app.exesShown, isRussian: app.lang == .ru, showControls: false
         )
         .padding(30)
