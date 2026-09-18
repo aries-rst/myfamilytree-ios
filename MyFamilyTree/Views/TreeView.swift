@@ -119,7 +119,7 @@ struct FamilyBranchView: View {
     var body: some View {
         VStack(spacing: 8) {
             if isRoot, showControls {
-                HStack(alignment: .bottom, spacing: 24) {
+                HStack(alignment: .bottom, spacing: 6) {
                     ForEach(node.people) { person in
                         ancestorSlot(for: person)
                     }
@@ -164,13 +164,21 @@ struct FamilyBranchView: View {
 
             if !node.children.isEmpty {
                 connector
-                HStack(alignment: .top, spacing: 24) {
-                    ForEach(node.children) { child in
-                        FamilyBranchView(
-                            node: child, isRoot: false,
-                            onTapPerson: onTapPerson, onAddChild: onAddChild, onAddSpouse: onAddSpouse, onAddParent: onAddParent,
-                            exesShown: exesShown, isRussian: isRussian, showControls: showControls
-                        )
+                ZStack(alignment: .top) {
+                    if node.children.count > 1 {
+                        Rectangle().fill(Theme.ink.opacity(0.4)).frame(height: 2)
+                    }
+                    HStack(alignment: .top, spacing: 24) {
+                        ForEach(node.children) { child in
+                            VStack(spacing: 0) {
+                                Rectangle().fill(Theme.ink.opacity(0.4)).frame(width: 2, height: 14)
+                                FamilyBranchView(
+                                    node: child, isRoot: false,
+                                    onTapPerson: onTapPerson, onAddChild: onAddChild, onAddSpouse: onAddSpouse, onAddParent: onAddParent,
+                                    exesShown: exesShown, isRussian: isRussian, showControls: showControls
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -260,6 +268,6 @@ struct FamilyBranchView: View {
     }
 
     private var connector: some View {
-        Rectangle().fill(Theme.ink.opacity(0.22)).frame(width: 2, height: 14)
+        Rectangle().fill(Theme.ink.opacity(0.4)).frame(width: 2, height: 14)
     }
 }
