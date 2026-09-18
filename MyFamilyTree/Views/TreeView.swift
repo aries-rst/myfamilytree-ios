@@ -120,8 +120,10 @@ struct FamilyBranchView: View {
         VStack(spacing: 8) {
             if isRoot, showControls {
                 HStack(alignment: .bottom, spacing: 6) {
-                    ForEach(node.people) { person in
-                        ancestorSlot(for: person)
+                    ForEach(Array(node.people.enumerated()), id: \.element.id) { index, person in
+                        if index == 0 || !person.isEx || exesShown {
+                            ancestorSlot(for: person)
+                        }
                     }
                 }
             }
