@@ -18,6 +18,7 @@ struct PeopleListView: View {
                 result.append(FlatEntry(nodeId: node.id, person: person))
             }
             for child in node.children { walk(child) }
+            for ancestorNode in node.ancestors.values { walk(ancestorNode) }
         }
         walk(app.root)
         return result
