@@ -28,23 +28,10 @@ struct PersonDetailSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    if let photoData = currentPerson.photoData, let uiImage = UIImage(data: photoData) {
-                        Image(uiImage: uiImage)
-                            .resizable().scaledToFill()
-                            .frame(width: 150, height: 150)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(Theme.gold, lineWidth: 3))
-                    } else {
-                        Circle()
-                            .fill((currentPerson.sex == .male ? Theme.male : Theme.female).opacity(0.15))
-                            .frame(width: 150, height: 150)
-                            .overlay(
-                                Text(currentPerson.avatarInitials)
-                                    .font(.system(size: 46, weight: .bold))
-                                    .foregroundStyle(currentPerson.sex == .male ? Theme.male : Theme.female)
-                            )
-                            .overlay(Circle().stroke(currentPerson.sex == .male ? Theme.male : Theme.female, lineWidth: 3))
-                    }
+                    AvatarView(
+                        photoData: currentPerson.photoData, diameter: 150,
+                        ringColor: currentPerson.sex == .male ? Theme.male : Theme.female
+                    )
 
                     Text(currentPerson.name.isEmpty ? (isRussian ? "Без имени" : "No name") : currentPerson.name)
                         .font(.system(size: 20, weight: .bold))
