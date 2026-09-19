@@ -36,11 +36,7 @@ struct PeopleListView: View {
                     selected = SelectedPerson(nodeId: entry.nodeId, person: entry.person)
                 } label: {
                     HStack(spacing: 12) {
-                        ZStack {
-                            Circle().fill(Theme.paper)
-                            Text(entry.person.avatarInitials).font(.system(size: 12, weight: .bold))
-                        }
-                        .frame(width: 36, height: 36)
+                        AvatarView(photoData: entry.person.photoData, diameter: 36, ringColor: entry.person.sex == .male ? Theme.male : Theme.female)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(entry.person.name.isEmpty ? (app.lang == .ru ? "Без имени" : "No name") : entry.person.name)
