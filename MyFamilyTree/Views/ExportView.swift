@@ -52,16 +52,29 @@ struct ExportView: View {
     @MainActor
     private func renderImage() -> UIImage? {
         let content = FamilyBranchView(
-            node: app.root, isRoot: false,
+            node: app.root, isRoot: true,
             onTapPerson: { _, _ in }, onAddChild: { _ in }, onAddSpouse: { _ in }, onAddParent: { _, _ in },
             exesShown: app.exesShown, isRussian: app.lang == .ru, showControls: false
         )
         .padding(30)
-        .background(Color.white)
+        .background(exportBackground)
         .environmentObject(app)
         let renderer = ImageRenderer(content: content)
         renderer.scale = 3
         return renderer.uiImage
+    }
+
+    /// The parchment texture as a print/export backdrop, when it's been added
+    /// to the app bundle — falls back to plain white if it hasn't, so export
+    /// keeps working either way.
+    @ViewBuilder
+    private var exportBackground: some View {
+        if let path = Bundle.main.path(forResource: "parchment", ofType: "jpg"),
+           let uiImage = UIImage(contentsOfFile: path) {
+            Image(uiImage: uiImage).resizable().scaledToFill()
+        } else {
+            Color.white
+        }
     }
 
     private func watermarked(_ image: UIImage) -> UIImage {
