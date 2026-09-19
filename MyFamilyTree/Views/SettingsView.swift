@@ -46,6 +46,27 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                 }
 
+                Section(isRussian ? "Цветовая схема" : "Color scheme") {
+                    ForEach(FamilyPalette.allCases) { scheme in
+                        Button {
+                            app.palette = scheme
+                        } label: {
+                            HStack {
+                                Circle()
+                                    .fill(scheme.wine)
+                                    .frame(width: 22, height: 22)
+                                Text(scheme.label(app.lang))
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                if app.palette == scheme {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(scheme.wine)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if !app.isPro {
                     Section(app.t(.freeGroup)) {
                         Text(app.t(.freeInfo1)).font(.system(size: 14)).foregroundStyle(.secondary)
