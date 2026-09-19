@@ -118,7 +118,7 @@ struct FamilyBranchView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            if isRoot, showControls {
+            if isRoot {
                 HStack(alignment: .bottom, spacing: 6) {
                     ForEach(Array(node.people.enumerated()), id: \.element.id) { index, person in
                         if index == 0 || !person.isEx || exesShown {
@@ -215,7 +215,7 @@ struct FamilyBranchView: View {
                     }
                 }
                 connector
-            } else if !person.name.isEmpty {
+            } else if showControls, !person.name.isEmpty {
                 Button { onAddParent(node.id, person.id) } label: {
                     Text((isRussian ? "+ Родители \"" : "+ Parents of \"") + person.name + "\"")
                         .font(.system(size: 11, weight: .bold))
@@ -232,18 +232,7 @@ struct FamilyBranchView: View {
 
     private func personChip(_ person: FamilyPerson, nodeId: UUID) -> some View {
         VStack(spacing: 4) {
-            ZStack {
-                Circle().fill((person.sex == .male ? Theme.male : Theme.female).opacity(0.15))
-                if let data = person.photoData, let uiImage = UIImage(data: data) {
-                    Image(uiImage: uiImage).resizable().scaledToFill().clipShape(Circle())
-                } else {
-                    Text(person.avatarInitials)
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(person.sex == .male ? Theme.male : Theme.female)
-                }
-            }
-            .frame(width: 38, height: 38)
-            .overlay(Circle().stroke(person.sex == .male ? Theme.male : Theme.female, lineWidth: 2))
+            AvatarView(photoData: person.photoData, diameter: 38, ringColor: person.sex == .male ? Theme.male : Theme.female)
 
             Text(person.name.isEmpty ? "—" : person.name)
                 .font(.system(size: 13, weight: .bold))
