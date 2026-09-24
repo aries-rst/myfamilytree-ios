@@ -15,6 +15,16 @@ final class AppState: ObservableObject {
     private let langKey = "myfamilytree.lang"
     private let paletteKey = "myfamilytree.palette"
 
+    // Guards against save() firing mid-load(). root/isPro/lang/palette below
+    // all have `didSet { save() }`, and load() assigns them one at a time
+    // from disk — without this flag, the first assignment (root) would
+    // trigger a save() that writes every OTHER property's still-default
+    // in-memory value (isPro still false, lang still .en, palette still
+    // .classic) back over its real saved value on disk, before load() gets a
+    // chance to read it — e.g. silently resetting a Pro purchase to false on
+    // every relaunch. (Same bug found and fixed in MyOffice's AppState.)
+    private var isLoading = false
+
     init() {
         load()
     }
@@ -24,6 +34,7 @@ final class AppState: ObservableObject {
     }
 
     private func save() {
+        guard !isLoading else { return }
         if let data = try? JSONEncoder().encode(root) {
             UserDefaults.standard.set(data, forKey: rootKey)
         }
@@ -33,6 +44,7 @@ final class AppState: ObservableObject {
     }
 
     private func load() {
+        isLoading = true
         if let data = UserDefaults.standard.data(forKey: rootKey),
            let decoded = try? JSONDecoder().decode(FamilyNode.self, from: data) {
             root = decoded
@@ -45,6 +57,7 @@ final class AppState: ObservableObject {
            let decodedPalette = FamilyPalette(rawValue: paletteRaw) {
             palette = decodedPalette
         }
+        isLoading = false
     }
 
     func resetAllData() {
