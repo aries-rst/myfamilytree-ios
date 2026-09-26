@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LimitPaywallSheet: View {
     @EnvironmentObject var app: AppState
+    @EnvironmentObject var store: StoreManager
     @Environment(\.dismiss) private var dismiss
 
     private var isRussian: Bool { app.lang == .ru }
@@ -18,20 +19,35 @@ struct LimitPaywallSheet: View {
                 .multilineTextAlignment(.leading)
 
             Button {
-                app.buyPro()
-                dismiss()
+                Task {
+                    await store.purchase()
+                    if app.isPro { dismiss() }
+                }
             } label: {
-                Text(isRussian ? "Купить PRO" : "Buy PRO").frame(maxWidth: .infinity)
+                if store.isPurchasing {
+                    ProgressView().frame(maxWidth: .infinity)
+                } else {
+                    Text(isRussian ? "Купить PRO" : "Buy PRO").frame(maxWidth: .infinity)
+                }
             }
             .buttonStyle(.borderedProminent)
             .tint(Theme.wine)
+            .disabled(store.isPurchasing)
+
+            if let error = store.lastError {
+                Text(error)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+            }
 
             Button(isRussian ? "Позже" : "Later") { dismiss() }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
+                .disabled(store.isPurchasing)
         }
         .padding(20)
-        .presentationDetents([.height(280)])
+        .presentationDetents([.height(320)])
         .presentationDragIndicator(.visible)
     }
 }
