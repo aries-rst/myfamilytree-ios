@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var app: AppState
+    @EnvironmentObject var store: StoreManager
     @State private var showResetConfirm = false
 
     private var isRussian: Bool { app.lang == .ru }
@@ -18,19 +19,49 @@ struct SettingsView: View {
                             Text(app.t(.proTitle)).font(.system(size: 19, weight: .bold))
                             Text(app.t(.proSub)).font(.system(size: 13)).foregroundStyle(.secondary)
                             HStack(alignment: .lastTextBaseline, spacing: 4) {
-                                Text("$4.99")
+                                Text(store.product?.displayPrice ?? "$4.99")
                                     .font(.system(size: 24, weight: .bold))
                                     .foregroundStyle(Theme.gold)
                                 Text(app.lang == .ru ? "однократно" : "one-time")
                                     .font(.system(size: 12))
                                     .foregroundStyle(.secondary)
                             }
-                            Button(app.t(.buyPro)) { app.buyPro() }
-                                .buttonStyle(.borderedProminent)
-                                .tint(Theme.wine)
-                            Button(app.t(.restore)) {}
-                                .buttonStyle(.plain)
-                                .foregroundStyle(.secondary)
+                            Button {
+                                Task { await store.purchase() }
+                            } label: {
+                                if store.isPurchasing {
+                                    ProgressView()
+                                } else {
+                                    Text(app.t(.buyPro))
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(Theme.wine)
+                            .disabled(store.isPurchasing)
+
+                            Button {
+                                Task { await store.restore() }
+                            } label: {
+                                if store.isPurchasing {
+                                    ProgressView()
+                                } else {
+                                    Text(app.t(.restore))
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
+                            .disabled(store.isPurchasing)
+
+                            if let error = store.lastError {
+                                Text(error)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.red)
+                                    .multilineTextAlignment(.center)
+                            } else if let status = store.statusMessage {
+                                Text(status)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                     .frame(maxWidth: .infinity)
