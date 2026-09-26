@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import StoreKit
 
 @MainActor
 final class AppState: ObservableObject {
@@ -132,7 +133,21 @@ final class AppState: ObservableObject {
         }
     }
 
-    func buyPro() {
+    // MARK: - Real entitlements (called only by StoreManager — this replaces
+    // the old fake `buyPro()` that just flipped isPro locally for free.)
+
+    /// Applied right after a purchase completes, or when a transaction update
+    /// arrives (e.g. an Ask to Buy approval).
+    func applyEntitlement(for transaction: Transaction) {
+        guard transaction.productID == ProductID.pro.rawValue else { return }
         isPro = true
+    }
+
+    /// Sets isPro from a full recomputation of current entitlements (used at
+    /// launch and after "Restore purchase"). Unlike applyEntitlement, this can
+    /// also move isPro back to false if no entitlement is found — correct
+    /// here since it reflects the complete, authoritative set.
+    func setProFromEntitlements(_ owned: Bool) {
+        isPro = owned
     }
 }
