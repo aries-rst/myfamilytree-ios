@@ -106,6 +106,10 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    CrossPromoSection(accent: Theme.wine, textColor: .primary, cardFill: Color(.secondarySystemBackground))
+                }
+
+                Section {
                     Button(role: .destructive) {
                         showResetConfirm = true
                     } label: {
