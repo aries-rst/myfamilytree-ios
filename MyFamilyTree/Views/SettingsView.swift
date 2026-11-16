@@ -4,6 +4,7 @@ struct SettingsView: View {
     @EnvironmentObject var app: AppState
     @EnvironmentObject var store: StoreManager
     @State private var showResetConfirm = false
+    @State private var showSampleConfirm = false
 
     private var isRussian: Bool { app.lang == .ru }
 
@@ -106,6 +107,23 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Button {
+                        if app.peopleCount > 1 || !(app.root.people.first?.name.isEmpty ?? true) {
+                            showSampleConfirm = true
+                        } else {
+                            app.loadSampleFamily()
+                        }
+                    } label: {
+                        Text(isRussian ? "Загрузить пример семьи" : "Load sample family")
+                            .frame(maxWidth: .infinity)
+                    }
+                } footer: {
+                    Text(isRussian
+                         ? "Готовое вымышленное древо из 7 человек, чтобы сразу посмотреть все возможности. Доступно всем, бесплатно."
+                         : "A ready-made fictional 7-person tree so you can try every feature right away. Available to everyone, free.")
+                }
+
+                Section {
                     CrossPromoSection(accent: Theme.wine, textColor: .primary, cardFill: Color(.secondarySystemBackground))
                 }
 
@@ -123,6 +141,16 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle(app.t(.settingsTitle))
+            .alert(isRussian ? "Заменить древо примером?" : "Replace tree with the sample?", isPresented: $showSampleConfirm) {
+                Button(isRussian ? "Отмена" : "Cancel", role: .cancel) {}
+                Button(isRussian ? "Заменить" : "Replace", role: .destructive) {
+                    app.loadSampleFamily()
+                }
+            } message: {
+                Text(isRussian
+                     ? "Текущее древо будет заменено."
+                     : "Your current tree will be replaced.")
+            }
             .alert(isRussian ? "Очистить все данные?" : "Clear all data?", isPresented: $showResetConfirm) {
                 Button(isRussian ? "Отмена" : "Cancel", role: .cancel) {}
                 Button(isRussian ? "Очистить" : "Clear", role: .destructive) {

@@ -65,6 +65,32 @@ final class AppState: ObservableObject {
         root = FamilyNode(people: [FamilyPerson(name: "", sex: .male)])
     }
 
+    /// Replaces the tree with a small fictional 3-generation family (7 people, fits the free
+    /// limit) so the whole app can be explored right away without typing anything in.
+    func loadSampleFamily() {
+        let ru = lang == .ru
+        func person(_ name: String, _ years: String, _ sex: Sex) -> FamilyPerson {
+            FamilyPerson(name: name, years: years, sex: sex)
+        }
+        let grandchildA = FamilyNode(people: [person(ru ? "Артём Иванов" : "Ethan Miller", "2012", .male)])
+        let grandchildB = FamilyNode(people: [person(ru ? "Алиса Иванова" : "Lily Miller", "2015", .female)])
+        let son = FamilyNode(
+            people: [
+                person(ru ? "Дмитрий Иванов" : "Daniel Miller", "1984", .male),
+                person(ru ? "Елена Иванова" : "Emma Miller", "1986", .female)
+            ],
+            children: [grandchildA, grandchildB]
+        )
+        let daughter = FamilyNode(people: [person(ru ? "Ольга Иванова" : "Olivia Miller", "1988", .female)])
+        root = FamilyNode(
+            people: [
+                person(ru ? "Сергей Иванов" : "George Miller", "1958", .male),
+                person(ru ? "Анна Иванова" : "Anna Miller", "1960", .female)
+            ],
+            children: [son, daughter]
+        )
+    }
+
     var peopleCount: Int { root.countAll() }
     var canAddPerson: Bool { isPro || peopleCount < 7 }
 
